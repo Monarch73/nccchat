@@ -110,7 +110,7 @@ namespace chat
 					break;
 
 				case "ad": //function make user admin
-					this.GrandAdmin();
+					this.GrantAdmin();
 					break;
 
 				case "du":
@@ -182,7 +182,7 @@ namespace chat
 			}
 		}
 
-		private void GrandAdmin ()
+		private void GrantAdmin ()
 		{
 			if (item.client.userState != TelnetClient.UserStates.ADMIN) 
 			{
@@ -311,7 +311,7 @@ namespace chat
 			{
 				item.client.SendLineToUser (" ");
 				item.client.SendLineToUser ("Admin functions:");
-				item.client.SendLineToUser (".ad <username>  grand admin permissions to username");
+				item.client.SendLineToUser (".ad <username>  grant admin permissions to username");
 				item.client.SendLineToUser (".du <number>    drop user from chat");
 			}
 		}
@@ -372,7 +372,7 @@ namespace chat
 			int availableChannelNumber = 0;
 			lock (Server.telnets) 
 			{
-				for (int i = 1; i <= 255; i++) // 1 = lobby
+				for (int i = 1; i <= 255; i++) // 0 = lobby
 				{
 					if (!this.isChannelNumberUsed(i))
 					{
@@ -387,6 +387,7 @@ namespace chat
 		}
 		
 		
+		// check, if channel nubmer is already used
 		private bool isChannelNumberUsed (int channelNumber)
 		{
 			bool channelNumberUsed = false;
@@ -406,6 +407,7 @@ namespace chat
 		}
 		
 		
+		// check, if channel name is used - case insensitive
 		private bool IsChannelNameUsed(string channelName)
 		{
 			bool channelNameUsed = false;
@@ -431,7 +433,8 @@ namespace chat
 			string[] pieces = channelNumberAsString.Split (',');
 			string channelPassword = "";
 			int channelNumber;
-
+			
+			// logged in?
 			if (item.client.userState == TelnetClient.UserStates.GUEST) 
 			{
 				item.client.SendLineToUser("Please login or register first.");
@@ -476,7 +479,7 @@ namespace chat
 				return;
 			}
 			
-			if (pieces.Length == 2 && pieces[1].ToString().Length != 0) // password given
+			if (pieces.Length == 2 && pieces[1].ToString().Length != 0) // password given?
 			{
 				channelPassword = pieces[1];
 				channelPassword = channelPassword.Trim();
@@ -580,6 +583,8 @@ namespace chat
 			return;
 		}
 		
+		
+		// remove channel password
 		private void RemoveChannelPassword()
 		{
 			if (!item.client.userPrefs.IsChannelOP())
@@ -619,7 +624,7 @@ namespace chat
 					
 					if (Server.telnets[slotNumber].userPrefs.GetChannelNumber() == item.client.userPrefs.GetChannelNumber())
 					{
-						item.client.SendToUser(string.Format("--- User {0} {1} is already on your channel! ---\r\n", slotNumber.ToString(), Server.telnets[slotNumber].username.ToUpper()));
+						item.client.SendToUser(string.Format("--- User ({0}) {1} is already on your channel! ---\r\n", slotNumber.ToString(), Server.telnets[slotNumber].username.ToUpper()));
 						return;
 					}
 					
@@ -628,7 +633,8 @@ namespace chat
 					{
 						target.SendLineToUser(
 								string.Format(
-								"User {0} invites you to channel `({1}) {2}`", 
+								"User ({0}) {1} invites you to channel `({2}) {3}`", 
+								item.client.slotNumber.ToString(),
 								item.client.username.ToUpper(), 
 								item.client.userPrefs.GetChannelNumber(), 
 								item.client.userPrefs.GetChannelName()));
@@ -648,6 +654,7 @@ namespace chat
 		}
 		
 		
+		// Drops a user back to the lobby. ChannelOP only
 		private void DropUserFromChannel()
 		{
 			if (!item.client.userPrefs.IsChannelOP())
@@ -660,11 +667,18 @@ namespace chat
 			int slotNumber = 0;
 			int.TryParse(slotNumberAsString, out slotNumber);
 			
+			// prevent channel op drop user from annother channel he does not own ;-)
+			if (Server.telnets[slotNumber].userPrefs.GetChannelNumber() != item.client.userPrefs.GetChannelNumber())
+			{
+				item.client.SendToUser(string.Format("--- User ({0}) {1} is not on your channel ---\r\n", slotNumber.ToString(), Server.telnets[slotNumber].username));
+				return;
+			}
+			
 			lock(Server.telnets)
 			{
 				if (slotNumber != 0 && userIdActive(slotNumber))
 				{
-					Server.SendAll(string.Format("--- User {0} {1} dropped down to channel LOBBY ---\r\n", slotNumber.ToString(), Server.telnets[slotNumber].username.ToUpper()));
+					Server.SendAll(string.Format("--- User ({0}) {1} dropped down to channel LOBBY ---\r\n", slotNumber.ToString(), Server.telnets[slotNumber].username.ToUpper()));
 		
 					Server.telnets[slotNumber].userPrefs.SetChannelName("Lobby");
 					Server.telnets[slotNumber].userPrefs.SetChannelnumber(0);
@@ -714,7 +728,7 @@ namespace chat
 			}
 		}
 		
-		// user online
+		// user online?
 		private bool userIdActive(int slotNumber)
 		{
 			foreach(KeyValuePair<int,TelnetClient> telnet in Server.telnets)
@@ -827,7 +841,7 @@ namespace chat
 		}		
 		
 		
-		// change 'says' text
+		// change 'whisper' text
 		private void SetWhisperText()
 		{
 			int maxLength = 20;
@@ -959,6 +973,7 @@ namespace chat
 		{
 			return this.GetFormattedUserlistElement(Server.telnets[slotNumber].userPrefs.GetChannelName(), 16);
 		}
+		
 		
 		// returns channell number 4 chars
 		private string GetFormattedChannelNumber(int slotNumber)
